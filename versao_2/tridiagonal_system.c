@@ -79,38 +79,7 @@ double build_system_compute_norm(TridiagonalSystem* system, double* x) {
 // destruir a estrutura tridiagonal. Por isso, só ignoramos esse problema
 
 // https://sistemas.fciencias.unam.mx/~ediaz/Cursos/Anal-numerico/Numerical%20mathematics.pdf (p. 110)
-// https://research.nvidia.com/sites/default/files/pubs/2010-01_Fast-Tridiagonal-Solvers/Zhang_Fast_2009.pdf (GPU)
-/*double solve_system_compute_norm(TridiagonalSystem* system, double* ans) {
-
-	// triangularização
-	for (int i = 0; i < system->n - 1; ++i) {
-		double m = -1.0 / system->main[i];
-
-		// L[i] <- L[i] - m * L[k]
-		system->main[i + 1] -= m * -2.0;
-		system->rhs[i + 1] -= m * system->rhs[i];
-	}
-
-	double norma = -1.0;
-
-	// retro-substituição
-	double delta = system->rhs[system->n - 1] / system->main[system->n - 1];
-	ans[system->n - 1] += delta;
-
-	double abs = fabs(delta);
-	norma = norma > abs ? norma : abs;
-
-	for (int i = system->n - 2; i >= 0; --i) {
-		delta = (system->rhs[i] - delta * -2.0) / system->main[i];
-		ans[i] += delta;
-
-		abs = fabs(delta);
-		norma = norma > abs ? norma : abs;
-	}
-
-	return norma;
-}*/
-
+// https://research.nvidia.com/sites/default/files/pubs/2010-01_Fast-Tridiagonal-Solvers/Zhang_Fast_2009.pdf
 double solve_system_compute_norm(TridiagonalSystem* system, double* ans) {
 
 	if (system->n == 1) {
@@ -124,15 +93,11 @@ double solve_system_compute_norm(TridiagonalSystem* system, double* ans) {
 	system->rhs[0] *= inv;
 
 	// triangularização
-	int i = 1;
-	for (i = 1; i < system->n - 1; ++i) {
+	for (int i = 1; i < system->n; ++i) {
 		inv = 1.0 / (system->main[i] - system->main[i - 1] * -1.0);
 		system->rhs[i] = (system->rhs[i] - system->rhs[i - 1] * -1.0) * inv;
 		system->main[i] = -2.0 * inv;
 	}
-
-	inv = 1.0 / (system->main[i] - system->main[i - 1] * -1.0);
-	system->rhs[i] = (system->rhs[i] - system->rhs[i - 1] * -1.0) * inv;
 
 
 	double norma = -1.0;
