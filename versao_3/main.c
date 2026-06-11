@@ -5,7 +5,9 @@
 #include "../utils.h"
 #include <math.h>
 
-#define BENCHMARKING
+#include <likwid.h>
+
+// #define BENCHMARKING
 
 
 
@@ -33,6 +35,8 @@ int main() {
 
 
 	rtime_t tempo_total = timestamp();
+	LIKWID_MARKER_INIT;
+	LIKWID_MARKER_START("Total");
 	
 
 	for (int iter = 0; iter < MAX; ++iter) {
@@ -84,7 +88,7 @@ int main() {
 		}
 
 		// termina de triangularizar (tira o -1.0 da última entrada do rhs)
-		rhs[N - 1] = ((rhs[N - 1] + 1.0) - rhs[N - 2] * -1.0) * inv;
+		rhs[N - 1] = ((rhs[N - 1] + 1.0) - (N > 1 ? rhs[N - 2] * -1.0 : 0.0)) * inv;
 		abs = fabs(rhs[N - 1]);
 		norma2 = norma2 > abs ? norma2 : abs;
 
@@ -143,7 +147,7 @@ int main() {
 		}
 
 		// termina de triangularizar
-		rhs[0] = (rhs[0] - rhs[1] * -2.0) * inv;
+		rhs[0] = (rhs[0] - (-1 < N - 2 ? rhs[1] * -2.0 : 0.0)) * inv;
 		abs = fabs(rhs[0]);
 		norma2 = norma2 > abs ? norma2 : abs;
 
@@ -155,6 +159,8 @@ int main() {
 	}
 
 
+	LIKWID_MARKER_STOP("Total");
+	LIKWID_MARKER_CLOSE;
 	tempo_total = timestamp() - tempo_total;
 
 	printf("##########\n# Tempo Total: %lf\n###########\n", tempo_total);

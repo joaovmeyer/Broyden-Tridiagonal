@@ -2,10 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "tridiagonal_system.h"
-#include "helper.h"
+#include "../helper.h"
 #include "../utils.h"
 
-#define BENCHMARKING
+#include <likwid.h>
+
+// #define BENCHMARKING
 
 
 
@@ -37,14 +39,21 @@ int main() {
 	for (int i = 0; i < N; ++i) x[i] = x0;
 
 	tempo_total = timestamp();
+	LIKWID_MARKER_INIT;
+	LIKWID_MARKER_START("Total");
+	
 	for (int i = 0; i < MAX; ++i) {
 
 		tempo_jacobiana = timestamp() - tempo_jacobiana;
+		LIKWID_MARKER_START("Jacobiana");
 		if (build_system_compute_norm(system, x) < epsilon) break;
+		LIKWID_MARKER_STOP("Jacobiana");
 		tempo_jacobiana = timestamp() - tempo_jacobiana;
 
 		tempo_sistema = timestamp() - tempo_sistema;
+		LIKWID_MARKER_START("Sistema Linear");
 		double norma = solve_system_compute_norm(system, x);
+		LIKWID_MARKER_STOP("Sistema Linear");
 		tempo_sistema = timestamp() - tempo_sistema;
 
 #ifndef BENCHMARKING
@@ -53,6 +62,9 @@ int main() {
 
 		if (norma < epsilon) break;
 	}
+	
+	LIKWID_MARKER_STOP("Total");
+	LIKWID_MARKER_CLOSE;
 	tempo_total = timestamp() - tempo_total;
 
 	printf("##########\n# Tempo Total: %lf\n# Tempo Jacobiana: %lf\n# Tempo SL: %lf\n###########\n", tempo_total, tempo_jacobiana, tempo_sistema);

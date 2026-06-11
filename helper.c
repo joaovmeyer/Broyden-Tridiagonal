@@ -3,10 +3,10 @@
 #include <stdio.h>
 
 
-// imprime os elementos do vetor separados por "\n"
+// imprime os elementos do vetor com o prefixo "xi = " separados por "\n"
 void print_vec(double* x, int n) {
     for (int i = 0; i < n; ++i) {
-        printf("%f\n", x[i]);
+        printf("x%i = %f\n", i + 1, x[i]);
     }
 }
 
