@@ -4,9 +4,9 @@
 
 
 // imprime os elementos do vetor com o prefixo "xi = " separados por "\n"
-void print_vec(double* x, int n) {
+void print_vec(double* x, int n, FILE* out) {
     for (int i = 0; i < n; ++i) {
-        printf("x%i = %f\n", i + 1, x[i]);
+        fprintf(out, "x%i = %f\n", i + 1, x[i]);
     }
 }
 

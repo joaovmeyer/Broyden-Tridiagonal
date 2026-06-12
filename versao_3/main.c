@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "helper.h"
+#include "../helper.h"
 #include "../utils.h"
 #include <math.h>
 
@@ -12,13 +12,22 @@
 
 
 
-int main() {
+int main(int argc, char* argv[]) {
+	
+	FILE* out = stdout;
+	if (argc == 3 && (strcmp(argv[1], "-o") == 0)) {
+		out = fopen(argv[2], "w");
+		if (!out) return 1;
+	} else if (argc != 1) {
+		puts("Uso inválido.");
+		return 1;
+	}
 
 	int N, MAX;
 	double x0, epsilon;
 	
 	if (scanf("%d %lf %lf %d", &N, &x0, &epsilon, &MAX) != 4) {
-		puts("Entrada inválida.");
+		fputs("Entrada inválida.\n", out);
 		return 1;
 	}
 
@@ -34,11 +43,12 @@ int main() {
 	}
 
 
-	rtime_t tempo_total = timestamp();
 	LIKWID_MARKER_INIT;
+	LIKWID_MARKER_REGISTER("Total");
+	
 	LIKWID_MARKER_START("Total");
 	
-
+	rtime_t tempo_total = timestamp();
 	for (int iter = 0; iter < MAX; ++iter) {
 
 		double norma1 = -1.0;
@@ -97,7 +107,8 @@ int main() {
 			++iter;
 
 #ifndef BENCHMARKING
-			puts(""); print_vec(x, N); printf("#");
+			fputs("#\n", out);
+			print_vec(x, N, out);
 #endif
 		}
 
@@ -152,18 +163,18 @@ int main() {
 		norma2 = norma2 > abs ? norma2 : abs;
 
 #ifndef BENCHMARKING
-		puts(""); print_vec(x, N); printf("#");
+		if (iter != 0) fputs("#\n", out);
+		print_vec(x, N, out);
 #endif
 
 		if ((norma1 < norma2 ? norma1 : norma2) < epsilon) break;
 	}
-
+	tempo_total = timestamp() - tempo_total;
 
 	LIKWID_MARKER_STOP("Total");
 	LIKWID_MARKER_CLOSE;
-	tempo_total = timestamp() - tempo_total;
 
-	printf("##########\n# Tempo Total: %lf\n###########\n", tempo_total);
+	fprintf(out, "###########\n# Tempo Total: %lf\n###########\n", tempo_total);
 	
 	free(x);
 	free(main);

@@ -12,13 +12,22 @@
 
 
 
-int main() {
+int main(int argc, char* argv[]) {
+	
+	FILE* out = stdout;
+	if (argc == 3 && (strcmp(argv[1], "-o") == 0)) {
+		out = fopen(argv[2], "w");
+		if (!out) return 1;
+	} else if (argc != 1) {
+		puts("Uso inválido.");
+		return 1;
+	}
 
 	int N, MAX;
 	double x0, epsilon;
 	
 	if (scanf("%d %lf %lf %d", &N, &x0, &epsilon, &MAX) != 4) {
-		puts("Entrada inválida.");
+		fputs("Entrada inválida.\n", out);
 		return 1;
 	}
 
@@ -38,36 +47,41 @@ int main() {
 	// preenche aproximação inicial com x0
 	for (int i = 0; i < N; ++i) x[i] = x0;
 
-	tempo_total = timestamp();
 	LIKWID_MARKER_INIT;
+	LIKWID_MARKER_REGISTER("Total");
+	LIKWID_MARKER_REGISTER("Jacobiana");
+	LIKWID_MARKER_REGISTER("Sistema Linear");
+	
 	LIKWID_MARKER_START("Total");
 	
+	tempo_total = timestamp();
 	for (int i = 0; i < MAX; ++i) {
 
-		tempo_jacobiana = timestamp() - tempo_jacobiana;
 		LIKWID_MARKER_START("Jacobiana");
-		if (build_system_compute_norm(system, x) < epsilon) break;
-		LIKWID_MARKER_STOP("Jacobiana");
 		tempo_jacobiana = timestamp() - tempo_jacobiana;
+		if (build_system_compute_norm(system, x) < epsilon) break;
+		tempo_jacobiana = timestamp() - tempo_jacobiana;
+		LIKWID_MARKER_STOP("Jacobiana");
 
-		tempo_sistema = timestamp() - tempo_sistema;
 		LIKWID_MARKER_START("Sistema Linear");
-		double norma = solve_system_compute_norm(system, x);
-		LIKWID_MARKER_STOP("Sistema Linear");
 		tempo_sistema = timestamp() - tempo_sistema;
+		double norma = solve_system_compute_norm(system, x);
+		tempo_sistema = timestamp() - tempo_sistema;
+		LIKWID_MARKER_STOP("Sistema Linear");
 
 #ifndef BENCHMARKING
-		puts(""); print_vec(x, N); printf("#");
+		if (i != 0) fputs("#\n", out);
+		print_vec(x, N, out);
 #endif
 
 		if (norma < epsilon) break;
 	}
+	tempo_total = timestamp() - tempo_total;
 	
 	LIKWID_MARKER_STOP("Total");
 	LIKWID_MARKER_CLOSE;
-	tempo_total = timestamp() - tempo_total;
 
-	printf("##########\n# Tempo Total: %lf\n# Tempo Jacobiana: %lf\n# Tempo SL: %lf\n###########\n", tempo_total, tempo_jacobiana, tempo_sistema);
+	fprintf(out, "###########\n# Tempo Total: %lf\n# Tempo Jacobiana: %lf\n# Tempo SL: %lf\n###########\n", tempo_total, tempo_jacobiana, tempo_sistema);
 	
 	free(x);
 	free_system(system);

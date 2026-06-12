@@ -54,7 +54,7 @@ void build_system(TridiagonalSystem* system, double* x) {
 	// meio
 	int i;
 	for (i = 1; i < system->n - 1; ++i) {
-		system->rhs[i] = (2.0 * x[i] - 3.0) * x[i] + x[i - 1] + 2.0 * x[i + 1] - 1.0; // rhs = -F
+		system->rhs[i] = (2.0 * x[i] - 3.0) * x[i] + x[i - 1] + 2.0 * x[i + 1] - 1.0;
 		system->upper[i] = -2.0;
 		system->main[i] = -4.0 * x[i] + 3.0;
 		system->lower[i - 1] = -1.0;
@@ -142,7 +142,7 @@ double build_system_compute_norm(TridiagonalSystem* system, double* x) {
 	// ...
 	#pragma omp simd reduction(max:norma)
 	for (i = 1; i < system->n - 1; ++i) {
-		system->rhs[i] = (2.0 * x[i] - 3.0) * x[i] + x[i - 1] + 2.0 * x[i + 1] - 1.0; // rhs = -F
+		system->rhs[i] = (2.0 * x[i] - 3.0) * x[i] + x[i - 1] + 2.0 * x[i + 1] - 1.0;
 		system->main[i] = -4.0 * x[i] + 3.0;
 
 		abs = fabs(system->rhs[i]);
@@ -156,7 +156,7 @@ Desta forma, o compilador foi capaz de vetorizar a construção do sistema linea
 ## Versão 3
 Nesta versão, a estrutura organizada do código será completamente descartada em troca da performance. Inicialmente, deixa-se de calcular explicitamente o sistema linear em cada iteração, e cada elemento é calculado na hora em que é preciso, diretamente na triangularização. Isso evita ter que preencher os vetores do sistema linear para logo depois percorrê-los novamente. Com isso, já se torna difícil distinguir entre que tempo foi gasto construindo o sistema linear e que tempo foi gasto resolvendo o mesmo, pois os dois passos estão sendo feitos ao mesmo tempo.
 
-Feito isso, tem pouco o que podemos fazer para acelerar ainda mais a resolução de um sistema linear, pelo menos sem utilizar [múltiplos cores ou uma GPU](https://research.nvidia.com/sites/default/files/pubs/2010-01_Fast-Tridiagonal-Solvers/Zhang_Fast_2009.pdf), que foge do escopo desta atividade. No entanto, é essencial notar que não estamos resolvendo apenas um sistema linear, mas  vários, um após o outro. Este detalhe faz com que ainda tenha espaço para mais otimizações. Perceba que enquanto efetuamos a retro-substituição no algoritmo de Thomas na iteração k, já temos parte do vetor $\bold{X_k}$, mesmo que incompleto. Como o sistema linear da próxima iteração é tridiagonal, não precisamos de $\bold{X_K}$ completo para calcular parcialmente $\text{diag}(\bold{J}_\bold{F}(\bold{X}_k))$ ou $-\bold{F}(\bold{X}_k)$. De fator, para a linha $i$ do sistema, precisamos apenas das linhas $i - 1$, $i$ e $i + 1$. Assim, enquanto efetuamos a retro-substituição na iteração k, podemos simultaneamente calcular o sistema linear para a iteração k + 1. Consequentemente, podemos também triangularizar o sistema da próxima iteração, tudo enquanto ainda estamos fazendo a retro-substituição da iteração atual. Nesse caso, a triangularização transformará a matriz em triangular inferior ao invés de triangular superior, uma vez que estamos triangularizando de cima para baixo, mas isso não é um problema. Dessa forma, quando terminarnos a iteração k, já teremos metade do trabalho para a iteração k + 1 feito, e assim sucessivamente. Caso em alguma iteração verificarmos que o método já convergiu, podemos apenas encerrar o procedimento com medate da próxima iteração feita. Isso representa um pequeno desperdício, mas o ganho em eficiência no resto das iterações deve ser suficiente para compensar por essa pequena perda.
+Feito isso, tem pouco o que podemos fazer para acelerar ainda mais a resolução de um sistema linear, pelo menos sem utilizar [múltiplos cores ou uma GPU](https://research.nvidia.com/sites/default/files/pubs/2010-01_Fast-Tridiagonal-Solvers/Zhang_Fast_2009.pdf), que foge do escopo desta atividade. No entanto, é essencial notar que não estamos resolvendo apenas um sistema linear, mas  vários, um após o outro. Este detalhe faz com que ainda tenha espaço para mais otimizações. Perceba que enquanto efetuamos a retro-substituição no algoritmo de Thomas na iteração k, já temos parte do vetor $\bold{X}_k$, mesmo que incompleto. Como o sistema linear da próxima iteração é tridiagonal, não precisamos de $\bold{X}_k$ completo para calcular parcialmente $\text{diag}(\bold{J}_\bold{F}(\bold{X}_k))$ ou $-\bold{F}(\bold{X}_k)$. De fator, para a linha $i$ do sistema, precisamos apenas das linhas $i - 1$, $i$ e $i + 1$. Assim, enquanto efetuamos a retro-substituição na iteração k, podemos simultaneamente calcular o sistema linear para a iteração k + 1. Consequentemente, podemos também triangularizar o sistema da próxima iteração, tudo enquanto ainda estamos fazendo a retro-substituição da iteração atual. Nesse caso, a triangularização transformará a matriz em triangular inferior ao invés de triangular superior, uma vez que estamos triangularizando de cima para baixo, mas isso não é um problema. Dessa forma, quando terminarnos a iteração k, já teremos metade do trabalho para a iteração k + 1 feito, e assim sucessivamente. Caso em alguma iteração verificarmos que o método já convergiu, podemos apenas encerrar o procedimento com medate da próxima iteração feita. Isso representa um pequeno desperdício, mas o ganho em eficiência no resto das iterações deve ser suficiente para compensar por essa pequena perda.
 
 Em uma visão geral, cada iteração agora:
  - Encontra a solução (usando o sistema já tridiagonalizado na iteração anterior)
@@ -190,4 +190,102 @@ for (int i = 1; i < N; ++i) {
 }
 ```
 
-Essa otimização, mais uma vez, ignora completamente uma estrutura organizada do código. Agora, uma iteração começa antes mesmo da última terminar, não há separação entre que parte do programa monta o sistema linear, que parte resolve, que parte verifica a convergência. Será tudo apenas um emaranhado de código que serve ao objetivo único resolver esse problema específico, sendo muito difícil reaproveitar qualquer parte dele. Este é, portanto, um sacrifício necessário para atingirmos o máximo de performance na resolução do problema proposto nessa atividade.
+Essa otimização, mais uma vez, ignora completamente uma estrutura organizada do código. Agora, uma iteração começa antes mesmo da última terminar, não há separação entre que parte do programa monta o sistema linear, que parte resolve, que parte verifica a convergência. Será tudo apenas um emaranhado de código que serve ao objetivo único resolver esse problema específico, sendo muito difícil reaproveitar qualquer parte. Este é, portanto, um sacrifício necessário para atingirmos o máximo de performance na resolução do problema proposto nessa atividade.
+
+## Apêndice
+
+### Arquitetura do processador utilizado nos testes
+```
+--------------------------------------------------------------------------------
+CPU name:	Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz
+CPU type:	Intel Cometlake processor
+CPU stepping:	3
+********************************************************************************
+Hardware Thread Topology
+********************************************************************************
+Sockets:		1
+CPU dies:		1
+Cores per socket:	6
+Threads per core:	2
+--------------------------------------------------------------------------------
+HWThread        Thread        Core        Die        Socket        Available
+0               0             0           0          0             *                
+1               0             1           0          0             *                
+2               0             2           0          0             *                
+3               0             3           0          0             *                
+4               0             4           0          0             *                
+5               0             5           0          0             *                
+6               1             0           0          0             *                
+7               1             1           0          0             *                
+8               1             2           0          0             *                
+9               1             3           0          0             *                
+10              1             4           0          0             *                
+11              1             5           0          0             *                
+--------------------------------------------------------------------------------
+Socket 0:		( 0 6 1 7 2 8 3 9 4 10 5 11 )
+--------------------------------------------------------------------------------
+********************************************************************************
+Cache Topology
+********************************************************************************
+Level:			1
+Size:			32 kB
+Type:			Data cache
+Associativity:		8
+Number of sets:		64
+Cache line size:	64
+Cache type:		Non Inclusive
+Shared by threads:	2
+Cache groups:		( 0 6 ) ( 1 7 ) ( 2 8 ) ( 3 9 ) ( 4 10 ) ( 5 11 )
+--------------------------------------------------------------------------------
+Level:			2
+Size:			256 kB
+Type:			Unified cache
+Associativity:		4
+Number of sets:		1024
+Cache line size:	64
+Cache type:		Non Inclusive
+Shared by threads:	2
+Cache groups:		( 0 6 ) ( 1 7 ) ( 2 8 ) ( 3 9 ) ( 4 10 ) ( 5 11 )
+--------------------------------------------------------------------------------
+Level:			3
+Size:			12 MB
+Type:			Unified cache
+Associativity:		16
+Number of sets:		12288
+Cache line size:	64
+Cache type:		Inclusive
+Shared by threads:	12
+Cache groups:		( 0 6 1 7 2 8 3 9 4 10 5 11 )
+--------------------------------------------------------------------------------
+********************************************************************************
+NUMA Topology
+********************************************************************************
+NUMA domains:		1
+--------------------------------------------------------------------------------
+Domain:			0
+Processors:		( 0 6 1 7 2 8 3 9 4 10 5 11 )
+Distances:		10
+Free memory:		425.742 MB
+Total memory:		7764.93 MB
+--------------------------------------------------------------------------------
+
+
+********************************************************************************
+Graphical Topology
+********************************************************************************
+Socket 0:
++-------------------------------------------------------------------+
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| |  0 6   | |  1 7   | |  2 8   | |  3 9   | |  4 10  | |  5 11  | |
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| |  32 kB | |  32 kB | |  32 kB | |  32 kB | |  32 kB | |  32 kB | |
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| | 256 kB | | 256 kB | | 256 kB | | 256 kB | | 256 kB | | 256 kB | |
+| +--------+ +--------+ +--------+ +--------+ +--------+ +--------+ |
+| +---------------------------------------------------------------+ |
+| |                             12 MB                             | |
+| +---------------------------------------------------------------+ |
++-------------------------------------------------------------------+
+```
