@@ -1,4 +1,4 @@
-﻿# Resolução de Sistemas Não-Lineares de Broyden
+# Resolução de Sistemas Não-Lineares de Broyden
 
 ## Introdução
 Sistemas não-lineares de Broyden são os sistemas da forma **F**(**X**) = **0**, com 
@@ -22,7 +22,7 @@ $$
 Encontrado $\bold{\Delta}_k$, recuperamos a incógnita $\bold{X}_{k+1} = \bold{\Delta}_k + \bold{X}_k$.
 
 ### Cálculo da Jacobiana e Resolução dos Sistemas Lineares
-Note que o cálculo da matriz jacobiana para o problema apresentado é relativamente simples. Cada função $f_i$ depende no máximo de $x_{i-1}$, $x_i$ e $x_{i+1}$. Com isso, podemos perceber que a jacobiana assume uma forma tridiagonal. Isto é, a jacobiana só assume valores diferentes de 0 na sua diagonal principal e nas entradas diretamente acima/abaixo dela, enquanto todos os outros valores são nulos. Essa estrutura nos permite resolver o sistema linear que aparece durante as iterações do Método de Newton de forma eficiente. Neste trabalho, foi utilizado o Algoritmo de Thomas, que nada mais é do que um caso simplificado da Eliminação Gaussiana que toma proveito (computacionalmente falando) da estrutura tridiagonal da matriz. Além disso, devido à natureza sequencial do algoritmo de Thomas, foi explorado o algoritmo da Redução Cíclica, que embora efetue mais operações, permite que parte disso seja feito sem sincronia, permitindo maior aproveitamento do pipelining e registradores SIMD do processador.
+Note que o cálculo da matriz jacobiana para o problema apresentado é relativamente simples. Cada função $f_i$ depende no máximo de $x_{i-1}$, $x_i$ e $x_{i+1}$. Com isso, podemos perceber que a jacobiana assume uma forma tridiagonal. Isto é, a jacobiana só assume valores diferentes de 0 na sua diagonal principal e nas entradas diretamente acima/abaixo dela, enquanto todos os outros valores são nulos. Essa estrutura nos permite resolver o sistema linear que aparece durante as iterações do Método de Newton de forma eficiente. Neste trabalho, foi utilizado o Algoritmo de Thomas, que nada mais é do que um caso simplificado da Eliminação Gaussiana que toma proveito (computacionalmente falando) da estrutura tridiagonal da matriz.
 
 Em geral, o objetivo deste trabalho é não apenas desenvolver um programa que encontre uma solução para o sistema não-linear de Broyden utilizando o Método de Newton, mas também otimizar o programa de modo que seu tempo de execução seja mínimo. Para fins comparativos, será apresentado uma versão base, sem otimizações radicais do código. Em seguida, serão introduzidas outras versões, cada uma com o objetivo de superar a performance da última. Juntamente, serão apresentados resultados qualitativos de cada versão e análises de seus desempenhos e potenciais problemas. Ao final do trabalho, devemos ter um programa que resolve o sistema não-linear de Broyden o mais rápido possível, e com cada otimização justificada com base em conceitos teóricos. 
 
@@ -105,16 +105,15 @@ Com isso e algumas outras funções auxiliares, foi possível escrever o loop pr
 		// atualiza x da próxima iteração
 		for (int j = 0; j < N; ++j) x[j] += delta[j];
 
-		puts(""); print_vec(x, N); printf("#");
+		if (i != 0) fputs("#\n", out);
+		print_vec(x, N, out);
 
 		if (calcula_norma(delta, N) < epsilon) break;
 	}
 ```
 Aqui, `calcula_norma` retorna o maior elemento em módulo do vetor passado, de modo que os critérios de parada se alinhem com a versão do Método de Newton mostrada durante as aulas.
 
-Abaixo, estão apresentados gráficos mensurando a performance desta versão quando considerados diferentes tamanhos do sistema linear:
-
-Todos os gráficos (no total, 12) podem ser encontrados em outro lugar.
+Gráficos mensurando a performance dessa e das próximas versões podem ser encontrados no apêndice. Em especial, 
 
 Embora o programa seja estruturado de uma maneira decentemente eficiente, onde cada parte lida bem com seu problema isolado, ele não considera o problema como um todo. Em especial, podemos observar que nossa solução está limitada pela velocidade da memória (o que causa o efeito de "escada" no gráfico da performance, cada vez que o problema deixa de caber em uma área mais rápida da memória). Minimizar acessos desnecessários de memória será o principal desafio da próxima versão.
 
@@ -195,6 +194,8 @@ Essa otimização, mais uma vez, ignora completamente uma estrutura organizada d
 ## Apêndice
 
 ### Arquitetura do processador utilizado nos testes
+
+Abaixo está o resultado do comando `likwid-topology -g -c`:
 ```
 --------------------------------------------------------------------------------
 CPU name:	Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz
@@ -289,3 +290,28 @@ Socket 0:
 | +---------------------------------------------------------------+ |
 +-------------------------------------------------------------------+
 ```
+
+### Gráficos comparativos
+
+Abaixo estão gráficos comparando diferentes métricas de cada versão. Estão separados por trecho do código (cálculo das matrizes jacobianas, resolução dos sistemas lineares e aplicação do método de Newton). Note que para a versão 3, somente a aplicação do método de Newton foi considerada, uma vez que faria pouco sentido tentar separar os outros dois trechos nessa versão.
+
+#### Aplicação do Método de Newton
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Total/tempo.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Total/L3.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Total/L2CACHE.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Total/FLOPS_DP.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Total/FLOPS_AVX.png)
+
+ #### Cálculo das matrizes jacobianas
+ ![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Jacobiana/tempo.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Jacobiana/L3.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Jacobiana/L2CACHE.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Jacobiana/FLOPS_DP.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Jacobiana/FLOPS_AVX.png)
+  
+  #### Resolução dos sistemas lineares
+ ![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Sistema%20Linear/tempo.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Sistema%20Linear/L3.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Sistema%20Linear/L2CACHE.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Sistema%20Linear/FLOPS_DP.png)
+![erro](https://raw.githubusercontent.com/joaovmeyer/Broyden-Tridiagonal/refs/heads/main/resultados/Sistema%20Linear/FLOPS_AVX.png)
